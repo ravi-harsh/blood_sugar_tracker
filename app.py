@@ -66,6 +66,39 @@ def calculate_hba1c_from_db(user_id):
     hba1c_ifcc = (hba1c_dcct - 2.15) * 10.929
     return round(avg_mgdl, 1), round(hba1c_dcct, 2), round(hba1c_ifcc, 1)
 
+def get_chart_data(user_id, unit='mgdl'):
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+    c.execute("""SELECT date, time, reading_mgdl, reading_mmol, classification 
+                 FROM blood_sugar_entries 
+                 WHERE user_id = ? 
+                 ORDER BY date, time""", (user_id,))
+    results = c.fetchall()
+    conn.close()
+    
+    chart_data = {
+        'labels': [],
+        'readings': [],
+        'colors': [],
+        'legend': {
+            'Low': '#ff6b6b',
+            'Normal': '#51cf66', 
+            'Borderline': '#ffd43b',
+            'High': '#ff8787',
+            'Dangerous': '#c92a2a'
+        },
+        'unit': unit
+    }
+    
+    for row in results:
+        chart_data['labels'].append(f"{row[0]} {row[1]}")
+        # Choose reading based on unit
+        reading = row[2] if unit == 'mgdl' else row[3]
+        chart_data['readings'].append(reading)
+        chart_data['colors'].append(chart_data['legend'].get(row[4], '#666'))
+    
+    return chart_data
+
 # --- Index ---
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -74,6 +107,7 @@ def index():
 
     create_table()
     user_id = session['user_id']
+    chart_data = get_chart_data(user_id, 'mgdl')
 
     if request.method == 'POST':
         date = request.form['date']
