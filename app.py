@@ -99,11 +99,36 @@ def get_chart_data(user_id, unit='mgdl'):
     
     return chart_data
 
-# --- Index ---
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if 'user_id' not in session:
         return redirect(url_for('login'))
+
+    user_id = session['user_id']
+
+    # Get blood sugar entries from your database for this user
+    conn = sqlite3.connect('blood_sugar.db')
+    c = conn.cursor()
+    c.execute('SELECT date, value, unit FROM blood_sugar WHERE user_id = ? ORDER BY date', (user_id,))
+    rows = c.fetchall()
+    conn.close()
+
+    # Convert to list of dictionaries (optional, helps with template logic)
+    entries = [{'date': row[0], 'value': row[1], 'unit': row[2]} for row in rows]
+
+    # Prepare chart data
+    chart_labels = [entry['date'] for entry in entries]
+    chart_readings = [entry['value'] for entry in entries]
+    unit = entries[0]['unit'] if entries else 'mg/dL'  # fallback if no data
+
+    chart_data = {
+        'labels': chart_labels,
+        'readings': chart_readings,
+        'unit': unit
+    }
+
+    return render_template('index.html', entries=entries, chart_data=chart_data)
+
 
     create_table()
     user_id = session['user_id']
@@ -146,7 +171,8 @@ def index():
     return render_template('index.html', entries=entries,
                            avg_mgdl=avg_mgdl,
                            hba1c_dcct=hba1c_dcct,
-                           hba1c_ifcc=hba1c_ifcc)
+                           hba1c_ifcc=hba1c_ifcc,
+                           chart_data=chart_data)
 
 # --- Register ---
 @app.route('/register', methods=['GET', 'POST'])
