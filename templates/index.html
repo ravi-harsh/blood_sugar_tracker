@@ -1,26 +1,27 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Blood Sugar Tracker</title>
+    <title>Blood Sugar Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <h1>Welcome to Blood Sugar Tracker</h1>
+    <h1>Welcome, {{ session.username }}</h1>
 
-    <form action="/add" method="post">
+    <form method="POST">
         <input type="date" name="date" required>
         <input type="time" name="time" required>
-        <input type="number" step="any" name="value" placeholder="Blood Sugar" required>
-        <select name="unit">
-            <option value="mg/dL">mg/dL</option>
-            <option value="mmol/L">mmol/L</option>
+        <input type="number" step="any" name="reading" required placeholder="Reading">
+        <select name="unit" required>
+            <option value="mgdl">mg/dL</option>
+            <option value="mmol">mmol/L</option>
         </select>
-        <select name="time_of_day">
+        <select name="time_of_day" required>
             <option value="Morning">Morning</option>
             <option value="Afternoon">Afternoon</option>
             <option value="Evening">Evening</option>
             <option value="Night">Night</option>
         </select>
-        <button type="submit">Add Reading</button>
+        <button type="submit">Add</button>
     </form>
 
     <h2>Recent Entries</h2>
@@ -28,19 +29,87 @@
         <tr>
             <th>Date</th>
             <th>Time</th>
-            <th>Value</th>
-            <th>Unit</th>
+            <th>mg/dL</th>
+            <th>mmol/L</th>
             <th>Time of Day</th>
+            <th>Classification</th>
         </tr>
         {% for entry in entries %}
         <tr>
-            <td>{{ entry.date }}</td>
-            <td>{{ entry.time }}</td>
-            <td>{{ entry.value }}</td>
-            <td>{{ entry.unit }}</td>
-            <td>{{ entry.time_of_day }}</td>
+            <td>{{ entry[0] }}</td>
+            <td>{{ entry[1] }}</td>
+            <td>{{ entry[3] }}</td>
+            <td>{{ entry[2] }}</td>
+            <td>{{ entry[4] }}</td>
+            <td>{{ entry[5] }}</td>
         </tr>
         {% endfor %}
     </table>
+
+    <h3>Average: {{ avg_mgdl }} mg/dL</h3>
+    <h3>HbA1c (DCCT): {{ hba1c_dcct }}%</h3>
+    <h3>HbA1c (IFCC): {{ hba1c_ifcc }} mmol/mol</h3>
+
+    <!-- Chart Data -->
+    <div style="width: 100%; height: 400px;">
+        <canvas id="bloodSugarChart"></canvas>
+    </div>
+
+    <script id="chart-data" type="application/json">
+        {{ chart_data | tojson | safe }}
+    </script>
+
+    <script>
+        const chartData = JSON.parse(document.getElementById('chart-data').textContent);
+        const ctx = document.getElementById('bloodSugarChart').getContext('2d');
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartData.labels,
+                datasets: [{
+                    label: 'Blood Sugar (' + chartData.unit + ')',
+                    data: chartData.readings,
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: chartData.colors,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.formattedValue + ' ' + chartData.unit;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Blood Sugar (' + chartData.unit + ')'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Date/Time'
+                        }
+                    }
+                }
+            }
+        });
+    </script>
 </body>
 </html>
